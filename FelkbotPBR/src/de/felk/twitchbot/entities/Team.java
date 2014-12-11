@@ -13,18 +13,18 @@ import de.felk.twitchbot.db.DBUserHandler;
 public class Team {
 
 	private Pokemon pkmn1, pkmn2, pkmn3;
-	HashMap<String, Integer> bets = new HashMap<String, Integer>();
+	HashMap<String, Bet> bets = new HashMap<>();
 	private int num, sum, id = -1;
 
-	public Team(Pokemon pkmn1, Pokemon pkmn2, Pokemon pkmn3, HashMap<String, Integer> bets) {
+	public Team(Pokemon pkmn1, Pokemon pkmn2, Pokemon pkmn3, HashMap<String, Bet> bets) {
 		this.pkmn1 = pkmn1;
 		this.pkmn2 = pkmn2;
 		this.pkmn3 = pkmn3;
 		this.bets = bets;
 		this.num = bets.size();
 		this.sum = 0;
-		for (int n : bets.values()) {
-			sum += n;
+		for (Bet bet : bets.values()) {
+			sum += bet.amount;
 		}
 	}
 
@@ -84,25 +84,25 @@ public class Team {
 			PreparedStatement stmt_addBet = conn.prepareStatement("INSERT INTO bets (user_id, team_id, bet, blue, balance, calculated) " + "VALUES (?, ?, ?, " + (blue ? 1 : 0) + ", ?, 1)");
 			PreparedStatement stmt_updateBalance = conn.prepareStatement("UPDATE users SET balance = ? WHERE id = ? LIMIT 1");
 
-			for (Entry<String, Integer> entry : bets.entrySet()) {
+			for (Entry<String, Bet> entry : bets.entrySet()) {
 
 				String username = entry.getKey();
-				int bet = entry.getValue();
+				Bet bet = entry.getValue();
 
 				// retrieve user
 				User user = userFetcher.getUser(username);
 
 				int newBalance = user.getBalance();
 				if (won) {
-					newBalance += bet * odds;
+					newBalance += bet.amount * odds;
 				} else {
-					newBalance -= bet;
+					newBalance -= bet.amount;
 				}
 
 				// insert bet
 				stmt_addBet.setInt(1, user.getId());
 				stmt_addBet.setInt(2, getId());
-				stmt_addBet.setInt(3, bet);
+				stmt_addBet.setInt(3, bet.amount);
 				stmt_addBet.setDouble(4, newBalance);
 				stmt_addBet.executeUpdate();
 

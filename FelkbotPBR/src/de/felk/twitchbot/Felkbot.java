@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
@@ -17,6 +19,7 @@ import java.util.regex.Pattern;
 
 import de.felk.twitchbot.db.DBHelper;
 import de.felk.twitchbot.db.DBUserHandler;
+import de.felk.twitchbot.entities.Bet;
 import de.felk.twitchbot.entities.Match;
 import de.felk.twitchbot.entities.Pokemon;
 import de.felk.twitchbot.entities.Team;
@@ -48,7 +51,8 @@ public class Felkbot extends Twitchbot {
 
 	private PokemonFetcher pokemonFetcher;
 
-	private HashMap<String, Integer> betsBlue, betsRed, balances;
+	private HashMap<String, Integer> balances;
+	private LinkedHashMap<String, Bet> betsBlue, betsRed;
 	private List<Pokemon> pokemons = new ArrayList<>();
 	private Date timeStart;
 	private String lastMsgSender = "", lastMsgChannel = "";
@@ -60,8 +64,8 @@ public class Felkbot extends Twitchbot {
 	public Felkbot(String name, String oauth, PokemonFetcher fetcher) {
 		super(name, oauth);
 		this.pokemonFetcher = fetcher;
-		this.betsBlue = new HashMap<String, Integer>();
-		this.betsRed = new HashMap<String, Integer>();
+		this.betsBlue = new LinkedHashMap<String, Bet>();
+		this.betsRed = new LinkedHashMap<String, Bet>();
 		this.balances = new HashMap<String, Integer>();
 
 		Connection conn = DBHelper.newConnection();
@@ -73,6 +77,9 @@ public class Felkbot extends Twitchbot {
 				String text = rs.getString("text");
 				Date date = rs.getTimestamp("time");
 				//System.out.println("Simulating " + user + "@" + date + ": " + text);
+				if (user.equalsIgnoreCase("tppinfobot")) {
+					System.out.println("Simulating " + user + "@" + date + ": " + text);
+				}
 				onMessageTime(tppChannel, user, "", "", text, date);
 			}
 		} catch (SQLException e) {
@@ -125,7 +132,9 @@ public class Felkbot extends Twitchbot {
 		// new match
 		addReaction(new ReactionConditionedRegex(tppChannel, tppInfobot, false, Pattern.compile("a new match is about to begin", Pattern.CASE_INSENSITIVE)) {
 			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderOp, String message, Date time, Matcher regexMatcher) {
-				newMatch();
+				// This bot message cannot be trusted anymore!
+				// Instead, start new round when match finishes and delete bets older than 4 minutes
+				//newMatch();
 				return null;
 			}
 		});
@@ -188,6 +197,9 @@ public class Felkbot extends Twitchbot {
 		// parse bettings
 		addReaction(new ReactionConditionedRegex(tppChannel, ANY, false, Pattern.compile("^!bet 0*([0-9]{1,7}) (blue|red)($|\\s)", Pattern.CASE_INSENSITIVE)) {
 			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderOp, String message, Date time, Matcher regexMatcher) {
+				if (phase != Phase.BETTING) {
+					return null;
+				}
 				addBet(sender, Integer.parseInt(regexMatcher.group(1)), regexMatcher.group(2).equalsIgnoreCase("blue"));
 				return null;
 			}
@@ -230,24 +242,44 @@ public class Felkbot extends Twitchbot {
 	private void addBalance(String username, int balance) {
 		balances.put(username, balance);
 		// remove invalid bets
-		Integer bet = betsBlue.get(username);
-		if (bet != null && bet > balance) {
+		Bet bet = betsBlue.get(username);
+		if (bet != null && bet.amount > balance) {
 			betsBlue.remove(username);
 		}
 		bet = betsRed.get(username);
-		if (bet != null && bet > balance) {
+		if (bet != null && bet.amount > balance) {
 			betsRed.remove(username);
 		}
 	}
+	
+	private void removeTooOldBets() {
+		// throw out all bets older than 4 minutes,
+		// because the betting phase only lasts that long and
+		// this method should only get called when still in that phase
+		
+		for (int i = 0; i < 2; i++) {
+			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
+			while (iter.hasNext()) {
+				long limit = new Date().getTime() - 4*60;
+				if (limit < iter.next().getValue().time.getTime()) {
+					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
+					break;
+				}
+				iter.remove();
+			}
+		}
+	}
 
-	private void addBet(String username, int bet, boolean onBlue) {
-		// first, check if bet seems valid.
+	private void addBet(String username, int betAmount, boolean onBlue) {
+		removeTooOldBets();
+		
+		// check if bet seems valid.
 		// remove only bets, which are 100% invalid!
 		// dataloss (maybe even based on inaccurate assumptions) are worse than false bets
 
 		// if user's current balance is known, check if bet is valid
 		Integer balance = balances.get(username);
-		if (balance != null && balance < bet) {
+		if (balance != null && balance < betAmount) {
 			return; // not enough money
 		}
 
@@ -255,12 +287,12 @@ public class Felkbot extends Twitchbot {
 			return; // already bet on opposite side
 		}
 
-		Integer prev = (onBlue ? betsBlue : betsRed).get(username);
-		if (prev != null && prev > bet) {
+		Bet prev = (onBlue ? betsBlue : betsRed).get(username);
+		if (prev != null && prev.amount > betAmount) {
 			return; // already bet more
 		}
 
-		(onBlue ? betsBlue : betsRed).put(username, bet);
+		(onBlue ? betsBlue : betsRed).put(username, new Bet(betAmount, new Date()));
 	}
 
 	private void startMatch(List<Pokemon> pokemons, Date date) {
@@ -277,6 +309,8 @@ public class Felkbot extends Twitchbot {
 
 	private void endMatch(boolean wonBlue, Date date) {
 
+		removeTooOldBets();
+		
 		if (pokemons.size() != 6) {
 			out("Could not end match, because pokemonNames list was not 6 long: " + Arrays.toString(pokemons.toArray()));
 			return;
@@ -297,8 +331,11 @@ public class Felkbot extends Twitchbot {
 
 		DBHelper.closeConnection(conn);
 
-		cleanup();
-
+		// Start new match here, because the "a new match bla bla" message cannot be trusted!
+		// Just constantly throw out bets older than 4 minutes
+		//cleanup();
+		newMatch();
+		
 	}
 
 	private void cleanup() {
