@@ -30,9 +30,18 @@ import de.felk.twitchbot.reaction.ReactionResult;
 public class Felkbot extends Twitchbot {
 
 	public static void main(String[] args) {
+		
+		Felkbot.simulateLogMode = false;
+		
 		if (args.length < 2) {
 			System.err.println("Need arguments: USER OAUTH");
 			System.exit(-1);
+		}
+		
+		if (args.length >= 3) {
+			if (args[2].equalsIgnoreCase("simulate")) {
+				Felkbot.simulateLogMode = true;
+			}
 		}
 
 		System.setErr(System.out);
@@ -40,6 +49,7 @@ public class Felkbot extends Twitchbot {
 		Connection conn = DBHelper.newConnection();
 		PokemonFetcher fetcher = new PokemonFetcher(conn);
 		DBHelper.closeConnection(conn);
+		
 		new Felkbot(args[0], args[1], fetcher);
 	}
 
@@ -61,6 +71,8 @@ public class Felkbot extends Twitchbot {
 			"Here you go, match visualization: ", "Helpful overview for this match: ", "Pre-calculated overview for this match: ", "Here's the precalculated overview: " };
 	private final String tppChannel = "#twitchplayspokemon";
 
+	public static boolean simulateLogMode = true;
+
 	public Felkbot(String name, String oauth, PokemonFetcher fetcher) {
 		super(name, oauth);
 		this.pokemonFetcher = fetcher;
@@ -68,24 +80,27 @@ public class Felkbot extends Twitchbot {
 		this.betsRed = new LinkedHashMap<String, Bet>();
 		this.balances = new HashMap<String, Integer>();
 
-		Connection conn = DBHelper.newConnection();
-		try {
-			ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY id ASC");
-			while (rs.next()) {
-				// System.out.println(rs.getString("text"));
-				String user = rs.getString("name");
-				String text = rs.getString("text");
-				Date date = rs.getTimestamp("time");
-				// System.out.println("Simulating " + user + "@" + date + ": " + text);
-				if (user.equalsIgnoreCase("tppinfobot")) {
-					System.out.println("Simulating " + user + "@" + date + ": " + text);
+		if (simulateLogMode) {
+			Connection conn = DBHelper.newConnection();
+			try {
+				ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id");
+				while (rs.next()) {
+					// System.out.println(rs.getString("text"));
+					String user = rs.getString("name");
+					String text = rs.getString("text");
+					Date date = rs.getTimestamp("time");
+					// System.out.println("Simulating " + user + "@" + date + ": " + text);
+					if (user.equalsIgnoreCase("tppinfobot")) {
+						System.out.println("Simulating " + user + "@" + date + ": " + text);
+					}
+					onMessageTime(tppChannel, user, "", "", text, date);
 				}
-				onMessageTime(tppChannel, user, "", "", text, date);
+			} catch (SQLException e) {
+				e.printStackTrace();
 			}
-		} catch (SQLException e) {
-			e.printStackTrace();
+			DBHelper.updatePokemonStats(conn);
+			DBHelper.closeConnection(conn);
 		}
-		DBHelper.closeConnection(conn);
 	}
 
 	private int parseBalance(String str) {
@@ -101,8 +116,10 @@ public class Felkbot extends Twitchbot {
 	protected void init() {
 		addOp("felkcraft");
 		setOutputEnabled(false);
-		// addDefaultChannel(tppChannel);
-		// addDefaultChannel(getOwnChannel());
+		if (!simulateLogMode) {
+			addDefaultChannel(tppChannel);
+			addDefaultChannel(getOwnChannel());
+		}
 		initReactions();
 	}
 
@@ -132,9 +149,12 @@ public class Felkbot extends Twitchbot {
 		// new match
 		addReaction(new ReactionConditionedRegex(tppChannel, tppInfobot, false, Pattern.compile("a new match is about to begin", Pattern.CASE_INSENSITIVE)) {
 			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderOp, String message, Date time, Matcher regexMatcher) {
-				// This bot message cannot be trusted anymore!
+				// This bot message cannot be trusted anymore to detect betting phase start!
 				// Instead, start new round when match finishes and delete bets older than 4 minutes
 				// newMatch();
+				if (phase == phase.BATTLE) {
+					newMatch();
+				}
 				return null;
 			}
 		});
@@ -179,8 +199,7 @@ public class Felkbot extends Twitchbot {
 		addReaction(new ReactionConditionedRegex(tppChannel, tppInfobot, false, Pattern.compile("Match resulted in a draw", Pattern.CASE_INSENSITIVE)) {
 			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderMod, String message, Date time, Matcher regexMatcher) {
 				if (phase != Phase.BATTLE) {
-					System.err.println("Wrong phase: did not cancel match due to draw");
-					return null;
+					System.err.println("Draw was announced, but not in battle phase. Clearing anyway...");
 				}
 				newMatch();
 				return null;

@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Date;
 
+import de.felk.twitchbot.Felkbot;
 import de.felk.twitchbot.db.DBHelper;
 
 public class Match {
@@ -50,7 +51,7 @@ public class Match {
 			if (!red.isSaved()) {
 				red.save(conn, !wonBlue, false, blue.getSum() / (double) red.getSum());
 			}
-			
+
 			PreparedStatement stmt = conn.prepareStatement("INSERT INTO matches (won_blue, time_start, time_end, team_blue, team_red) VALUES(?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
 			stmt.setInt(1, wonInt());
 			stmt.setTimestamp(2, new java.sql.Timestamp(timeStart.getTime()));
@@ -58,7 +59,7 @@ public class Match {
 			stmt.setInt(4, blue.getId());
 			stmt.setInt(5, red.getId());
 			stmt.executeUpdate();
-			
+
 			ResultSet rs = stmt.getGeneratedKeys();
 			if (rs.next()) {
 				id = rs.getInt(1);
@@ -66,9 +67,11 @@ public class Match {
 				// no generated keys?!
 				System.err.println("match was saved, but no keys were generated?");
 			}
-			
-			DBHelper.updatePokemonStats(conn, new int[] { blue.getPkmn1().id, blue.getPkmn2().id, blue.getPkmn3().id, red.getPkmn1().id, red.getPkmn2().id, red.getPkmn3().id });
-			//DBHelper.updateUserStats(conn);
+
+			if (!Felkbot.simulateLogMode) {
+				DBHelper.updatePokemonStats(conn, new int[] { blue.getPkmn1().id, blue.getPkmn2().id, blue.getPkmn3().id, red.getPkmn1().id, red.getPkmn2().id, red.getPkmn3().id });
+			}
+			// DBHelper.updateUserStats(conn);
 		} catch (SQLException e) {
 			System.err.println("Could not save match: " + toString());
 			e.printStackTrace();
