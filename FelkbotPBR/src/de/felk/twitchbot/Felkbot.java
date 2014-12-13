@@ -30,14 +30,14 @@ import de.felk.twitchbot.reaction.ReactionResult;
 public class Felkbot extends Twitchbot {
 
 	public static void main(String[] args) {
-		
+
 		Felkbot.simulateLogMode = false;
-		
+
 		if (args.length < 2) {
 			System.err.println("Need arguments: USER OAUTH");
 			System.exit(-1);
 		}
-		
+
 		if (args.length >= 3) {
 			if (args[2].equalsIgnoreCase("simulate")) {
 				Felkbot.simulateLogMode = true;
@@ -49,7 +49,7 @@ public class Felkbot extends Twitchbot {
 		Connection conn = DBHelper.newConnection();
 		PokemonFetcher fetcher = new PokemonFetcher(conn);
 		DBHelper.closeConnection(conn);
-		
+
 		new Felkbot(args[0], args[1], fetcher);
 	}
 
@@ -67,7 +67,7 @@ public class Felkbot extends Twitchbot {
 	private Date timeStart;
 	private String lastMsgSender = "", lastMsgChannel = "";
 	private ChatLogger chatLogger;
-	
+
 	private String[] messages = new String[] { "Here's the visualized overview: ", "Here you go: ", "Visualized overview: ", "Overview for the match: ", "Here's the tactical overview: ", "The tactical overview: ", "The match overview: ", "Your overview for this match: ",
 			"Here you go, match visualization: ", "Helpful overview for this match: ", "Pre-calculated overview for this match: ", "Here's the precalculated overview: " };
 	private final String tppChannel = "#twitchplayspokemon";
@@ -81,7 +81,7 @@ public class Felkbot extends Twitchbot {
 		this.betsRed = new LinkedHashMap<String, Bet>();
 		this.balances = new HashMap<String, Integer>();
 		this.chatLogger = new ChatLogger();
-		
+
 		if (simulateLogMode) {
 			Connection conn = DBHelper.newConnection();
 			try {
@@ -259,14 +259,16 @@ public class Felkbot extends Twitchbot {
 			}
 		});
 
-		// log every message
-		addReaction(new ReactionConditioned(tppChannel, ANY, false) {
-			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderMod, String message, Date time) {
-				chatLogger.log(sender, message, time);
-				return null;
-			}
-		});
-		
+		if (!simulateLogMode) {
+			// log every message
+			addReaction(new ReactionConditioned(tppChannel, ANY, false) {
+				public ReactionResult executeAccepted(String channel, String sender, boolean isSenderMod, String message, Date time) {
+					chatLogger.log(sender, message, time);
+					return null;
+				}
+			});
+		}
+
 	}
 
 	private void addBalance(String username, int balance) {
