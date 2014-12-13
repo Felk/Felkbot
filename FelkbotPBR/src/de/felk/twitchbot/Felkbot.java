@@ -66,7 +66,8 @@ public class Felkbot extends Twitchbot {
 	private List<Pokemon> pokemons = new ArrayList<>();
 	private Date timeStart;
 	private String lastMsgSender = "", lastMsgChannel = "";
-
+	private ChatLogger chatLogger;
+	
 	private String[] messages = new String[] { "Here's the visualized overview: ", "Here you go: ", "Visualized overview: ", "Overview for the match: ", "Here's the tactical overview: ", "The tactical overview: ", "The match overview: ", "Your overview for this match: ",
 			"Here you go, match visualization: ", "Helpful overview for this match: ", "Pre-calculated overview for this match: ", "Here's the precalculated overview: " };
 	private final String tppChannel = "#twitchplayspokemon";
@@ -79,7 +80,8 @@ public class Felkbot extends Twitchbot {
 		this.betsBlue = new LinkedHashMap<String, Bet>();
 		this.betsRed = new LinkedHashMap<String, Bet>();
 		this.balances = new HashMap<String, Integer>();
-
+		this.chatLogger = new ChatLogger();
+		
 		if (simulateLogMode) {
 			Connection conn = DBHelper.newConnection();
 			try {
@@ -152,7 +154,7 @@ public class Felkbot extends Twitchbot {
 				// This bot message cannot be trusted anymore to detect betting phase start!
 				// Instead, start new round when match finishes and delete bets older than 4 minutes
 				// newMatch();
-				if (phase == phase.BATTLE) {
+				if (phase == Phase.BATTLE) {
 					newMatch();
 				}
 				return null;
@@ -257,6 +259,14 @@ public class Felkbot extends Twitchbot {
 			}
 		});
 
+		// log every message
+		addReaction(new ReactionConditioned(tppChannel, ANY, false) {
+			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderMod, String message, Date time) {
+				chatLogger.log(sender, message, time);
+				return null;
+			}
+		});
+		
 	}
 
 	private void addBalance(String username, int balance) {
