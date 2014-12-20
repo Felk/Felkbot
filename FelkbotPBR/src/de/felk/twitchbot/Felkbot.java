@@ -284,15 +284,15 @@ public class Felkbot extends Twitchbot {
 		}
 	}
 
-	private void removeTooOldBets() {
+	private void removeTooOldBets(Date now) {
 		// throw out all bets older than 4 minutes,
 		// because the betting phase only lasts that long and
 		// this method should only get called when still in that phase
 
+		long limit = now.getTime() - 4 * 60 * 1000; // milliseconds!
 		for (int i = 0; i < 2; i++) {
 			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
 			while (iter.hasNext()) {
-				long limit = new Date().getTime() - 4 * 60 * 1000; // milliseconds!
 				Bet bet = iter.next().getValue();
 				if (limit < bet.time.getTime()) {
 					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
@@ -304,7 +304,7 @@ public class Felkbot extends Twitchbot {
 	}
 
 	private void addBet(String username, int betAmount, boolean onBlue, Date time) {
-		removeTooOldBets();
+		removeTooOldBets(time);
 
 		// check if bet seems valid.
 		// remove only bets, which are 100% invalid!
@@ -342,9 +342,9 @@ public class Felkbot extends Twitchbot {
 		out("--- NEW MATCH ---");
 	}
 
-	private void endMatch(boolean wonBlue, Date date) {
+	private void endMatch(boolean wonBlue, Date time) {
 
-		removeTooOldBets();
+		removeTooOldBets(time);
 
 		if (pokemons.size() != 6) {
 			out("Could not end match, because pokemonNames list was not 6 long: " + Arrays.toString(pokemons.toArray()));
@@ -360,7 +360,7 @@ public class Felkbot extends Twitchbot {
 
 		Team blue = new Team(pokemons.get(0), pokemons.get(1), pokemons.get(2), betsBlue);
 		Team red = new Team(pokemons.get(3), pokemons.get(4), pokemons.get(5), betsRed);
-		Match match = new Match(wonBlue, timeStart, date, blue, red);
+		Match match = new Match(wonBlue, timeStart, time, blue, red);
 		match.save(conn);
 		out(match.wonStr() + " won");
 
