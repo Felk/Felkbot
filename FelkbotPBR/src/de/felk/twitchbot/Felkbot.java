@@ -222,7 +222,7 @@ public class Felkbot extends Twitchbot {
 				if (phase != Phase.BETTING) {
 					return null;
 				}
-				addBet(sender, Integer.parseInt(regexMatcher.group(1)), regexMatcher.group(2).equalsIgnoreCase("blue"));
+				addBet(sender, Integer.parseInt(regexMatcher.group(1)), regexMatcher.group(2).equalsIgnoreCase("blue"), time);
 				return null;
 			}
 		});
@@ -292,8 +292,9 @@ public class Felkbot extends Twitchbot {
 		for (int i = 0; i < 2; i++) {
 			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
 			while (iter.hasNext()) {
-				long limit = new Date().getTime() - 4 * 60;
-				if (limit < iter.next().getValue().time.getTime()) {
+				long limit = new Date().getTime() - 4 * 60 * 1000; // milliseconds!
+				Bet bet = iter.next().getValue();
+				if (limit < bet.time.getTime()) {
 					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
 					break;
 				}
@@ -302,7 +303,7 @@ public class Felkbot extends Twitchbot {
 		}
 	}
 
-	private void addBet(String username, int betAmount, boolean onBlue) {
+	private void addBet(String username, int betAmount, boolean onBlue, Date time) {
 		removeTooOldBets();
 
 		// check if bet seems valid.
@@ -324,7 +325,9 @@ public class Felkbot extends Twitchbot {
 			return; // already bet more
 		}
 
-		(onBlue ? betsBlue : betsRed).put(username, new Bet(betAmount, new Date()));
+		Bet bet = new Bet(betAmount, time);
+
+		(onBlue ? betsBlue : betsRed).put(username, bet);
 	}
 
 	private void startMatch(List<Pokemon> pokemons, Date date) {
