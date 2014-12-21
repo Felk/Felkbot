@@ -52,6 +52,16 @@ public class DBHelper {
 		username = connectionProperties.getProperty("username");
 		password = connectionProperties.getProperty("password");
 
+		// Try to establish a connection right away, so 'conn' is not null.
+		// If it is null at this very first try, abort the program. This is unacceptable!
+		// prevents NPEs later on
+		Connection conn = getConnection();
+		if (conn == null) {
+			System.err.println("Database connection test failed! Aborting...");
+			System.exit(-1);
+		}
+		pauseConnection();
+		
 	}
 
 	public static void commit() {
@@ -86,6 +96,7 @@ public class DBHelper {
 				conn.setAutoCommit(autoCommit);
 			}
 		} catch (SQLException e) {
+			System.err.println("Could not establish a database connection!");
 			e.printStackTrace();
 		}
 		return conn;
@@ -189,6 +200,11 @@ public class DBHelper {
 	}
 
 	public static void setAutoCommit(boolean autoCommit) {
+		try {
+			conn.setAutoCommit(autoCommit);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 		DBHelper.autoCommit = autoCommit;
 	}
 
