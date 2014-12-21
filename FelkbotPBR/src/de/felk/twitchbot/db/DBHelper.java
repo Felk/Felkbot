@@ -128,7 +128,7 @@ public class DBHelper {
 
 		String query = "UPDATE `pkmns` SET " + "`matches` = (SELECT COUNT(`id`) FROM `teams` WHERE `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)), " + "`wins` = (SELECT COUNT(*) FROM `teams`, `matches` WHERE	"
 				+ "(`team_blue` = `teams`.`id` AND `won_blue` = 1 AND `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)) OR " + "(`team_red` = `teams`.`id` AND `won_blue` = 0 AND `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)) ), "
-				+ "`bets_sum` = (SELECT SUM(`sum`) FROM `teams` WHERE `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)) " + sqlIn;
+				+ "`bets_sum` = IFNULL((SELECT SUM(`sum`) FROM `teams` WHERE `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)), 0) " + sqlIn;
 		try {
 
 			getConnection().createStatement().executeUpdate(query);

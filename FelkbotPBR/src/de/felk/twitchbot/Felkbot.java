@@ -86,10 +86,15 @@ public class Felkbot extends Twitchbot {
 			// process log in 100k-entry-bulks
 			int bulksize = 100_000;
 			int offset = 0;
-			int count;
+			int count, max;
 			try {
+				// get the maximum log-ID at simulate-start.
+				// Prevents simulate-mode to insert matches regular felkbot already inserted during runtime
+				ResultSet maxRs = DBHelper.getConnection().createStatement().executeQuery("SELECT MAX(id) FROM `log`");
+				maxRs.next();
+				max = maxRs.getInt(1);
 				do {
-					ResultSet rs = DBHelper.getConnection().createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id LIMIT " + offset + ", " + bulksize);
+					ResultSet rs = DBHelper.getConnection().createStatement().executeQuery("SELECT * FROM `log` WHERE id <= " + max + " AND name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id LIMIT " + offset + ", " + bulksize);
 					count = 0;
 					while (rs.next()) {
 						count++;
@@ -104,7 +109,10 @@ public class Felkbot extends Twitchbot {
 						onMessageTime(tppChannel, user, "", "", text, date);
 					}
 					offset += bulksize;
+					// FORCE a new connection.
 					DBHelper.commit();
+					DBHelper.closeConnection();
+					System.gc();
 				} while (count >= bulksize);
 			} catch (SQLException e) {
 				e.printStackTrace();
