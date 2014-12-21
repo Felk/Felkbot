@@ -84,7 +84,7 @@ public class Felkbot extends Twitchbot {
 			DBHelper.setAutoCommit(false);
 			DBHelper.setClosePausedConnections(false);
 			// process log in 100k-entry-bulks
-			int bulksize = 100_000;
+			int bulksize = 1_000;
 			int offset = 0;
 			int count;
 			try {
