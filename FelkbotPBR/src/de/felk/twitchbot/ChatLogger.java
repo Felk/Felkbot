@@ -1,6 +1,5 @@
 package de.felk.twitchbot;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Date;
@@ -19,10 +18,9 @@ public class ChatLogger {
 	
 	private void dump() {
 
-		Connection conn = DBHelper.getConnection();
 		try {
-			conn.setAutoCommit(false);
-			PreparedStatement ps = conn.prepareStatement("INSERT INTO log (name, text, `time`) VALUES (?, ?, ?)");
+			DBHelper.setAutoCommit(false);
+			PreparedStatement ps = DBHelper.getConnection().prepareStatement("INSERT INTO log (name, text, `time`) VALUES (?, ?, ?)");
 			for (int i = 0; i < next; i++) {
 				ps.setString(1, messages[i].getUser());
 				ps.setString(2, messages[i].getText());
@@ -30,7 +28,7 @@ public class ChatLogger {
 				ps.addBatch();
 			}
 			ps.executeBatch();
-			conn.commit();
+			DBHelper.commit();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -45,7 +43,7 @@ public class ChatLogger {
 		//System.out.printf("#%-5d %-24s %s\n", next, user, text);
 		if (next >= messages.length) {
 			dump();
-			System.out.println("Logger dumped " + MAX + " message to Database!");
+			//System.out.println("Logger dumped " + MAX + " message to Database!");
 		}
 	}
 }
