@@ -19,8 +19,8 @@ public class ChatLogger {
 	
 	private void dump() {
 
-		//Connection conn = DBHelper.newConnection();
-		try (Connection conn = DBHelper.newConnection()) {
+		Connection conn = DBHelper.getConnection();
+		try {
 			conn.setAutoCommit(false);
 			PreparedStatement ps = conn.prepareStatement("INSERT INTO log (name, text, `time`) VALUES (?, ?, ?)");
 			for (int i = 0; i < next; i++) {
@@ -34,6 +34,7 @@ public class ChatLogger {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		DBHelper.pauseConnection();
 
 		reset();
 	}

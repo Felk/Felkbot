@@ -1,6 +1,5 @@
 package de.felk.twitchbot;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.NumberFormat;
@@ -46,9 +45,8 @@ public class Felkbot extends Twitchbot {
 
 		System.setErr(System.out);
 
-		Connection conn = DBHelper.newConnection();
-		PokemonFetcher fetcher = new PokemonFetcher(conn);
-		DBHelper.closeConnection(conn);
+		PokemonFetcher fetcher = new PokemonFetcher(DBHelper.getConnection());
+		DBHelper.pauseConnection();
 
 		new Felkbot(args[0], args[1], fetcher);
 	}
@@ -83,9 +81,10 @@ public class Felkbot extends Twitchbot {
 		this.chatLogger = new ChatLogger();
 
 		if (simulateLogMode) {
-			Connection conn = DBHelper.newConnection();
+			DBHelper.setAutoCommit(false);
+			DBHelper.setClosePausedConnections(false);
 			try {
-				ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id");
+				ResultSet rs = DBHelper.getConnection().createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id");
 				while (rs.next()) {
 					// System.out.println(rs.getString("text"));
 					String user = rs.getString("name");
@@ -100,8 +99,8 @@ public class Felkbot extends Twitchbot {
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
-			DBHelper.updatePokemonStats(conn);
-			DBHelper.closeConnection(conn);
+			DBHelper.updatePokemonStats();
+			DBHelper.pauseConnection();
 		}
 	}
 
@@ -351,8 +350,7 @@ public class Felkbot extends Twitchbot {
 			return;
 		}
 
-		Connection conn = DBHelper.newConnection();
-		DBUserHandler userHandler = new DBUserHandler(conn);
+		DBUserHandler userHandler = new DBUserHandler(DBHelper.getConnection());
 
 		for (Entry<String, Integer> entry : balances.entrySet()) {
 			userHandler.updateBalance(userHandler.getUserId(entry.getKey()), entry.getValue());
@@ -361,10 +359,10 @@ public class Felkbot extends Twitchbot {
 		Team blue = new Team(pokemons.get(0), pokemons.get(1), pokemons.get(2), betsBlue);
 		Team red = new Team(pokemons.get(3), pokemons.get(4), pokemons.get(5), betsRed);
 		Match match = new Match(wonBlue, timeStart, time, blue, red);
-		match.save(conn);
+		match.save(DBHelper.getConnection());
 		out(match.wonStr() + " won");
 
-		DBHelper.closeConnection(conn);
+		DBHelper.pauseConnection();
 
 		// Start new match here, because the "a new match bla bla" message cannot be trusted!
 		// Just constantly throw out bets older than 4 minutes

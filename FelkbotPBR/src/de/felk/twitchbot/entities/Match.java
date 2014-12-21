@@ -69,7 +69,7 @@ public class Match {
 			}
 
 			if (!Felkbot.simulateLogMode) {
-				DBHelper.updatePokemonStats(conn, new int[] { blue.getPkmn1().id, blue.getPkmn2().id, blue.getPkmn3().id, red.getPkmn1().id, red.getPkmn2().id, red.getPkmn3().id });
+				DBHelper.updatePokemonStats(new int[] { blue.getPkmn1().id, blue.getPkmn2().id, blue.getPkmn3().id, red.getPkmn1().id, red.getPkmn2().id, red.getPkmn3().id });
 			}
 			// DBHelper.updateUserStats(conn);
 		} catch (SQLException e) {

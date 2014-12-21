@@ -16,7 +16,10 @@ public class DBHelper {
 	private static final String PREFIX = "";
 	private static File propertiesFile = new File("dbconn.properties");
 	private static String host, database, username, password;
-
+	private static Connection conn;
+	private static boolean closePausedConnections = true;
+	private static boolean autoCommit = false;
+	
 	static {
 		// "Hack" to make the Database driver work properly.
 		// The internet told be to do so.
@@ -51,7 +54,44 @@ public class DBHelper {
 
 	}
 
-	public static Connection newConnection() {
+	public static void commit() {
+		try {
+			conn.commit();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Signals the DBHelper that the Connection is not needed for some time.
+	 * The DBHelper then might close it and establish a new connection when needed.
+	 */
+	public static void pauseConnection() {
+		commit();
+		if (closePausedConnections) {
+			closeConnection();
+		}
+	}
+	
+	/**
+	 * Returns an active Connection to the database.
+	 * This can be a previous connection that was put on hold, or a newly established one.
+	 * @return active SQL Connection object
+	 * @throws SQLException 
+	 */
+	public static Connection getConnection() {
+		try {
+			if (conn == null || conn.isClosed()) {
+				conn = newConnection();
+				conn.setAutoCommit(autoCommit);
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return conn;
+	}
+	
+	private static Connection newConnection() {
 		Connection conn = null;
 		try {
 			conn = DriverManager.getConnection("jdbc:mysql://" + host + "/" + database + "?user=" + username + "&password=" + password);
@@ -65,12 +105,10 @@ public class DBHelper {
 	/**
 	 * Recalculates and recounts the database fields `matches`, `wins` and `bets_sum`
 	 * 
-	 * @param conn
-	 *            the database connection
 	 * @param pkmnIds
 	 *            pokemon ids to update. If empty, all pokemons will be updated
 	 */
-	public static void updatePokemonStats(Connection conn, int... pkmnIds) {
+	public static void updatePokemonStats(int... pkmnIds) {
 
 		String sqlIn = "";
 		if (pkmnIds.length > 0) {
@@ -83,7 +121,7 @@ public class DBHelper {
 				+ "`bets_sum` = (SELECT SUM(`sum`) FROM `teams` WHERE `nat_id` IN (`pkmn1`, `pkmn2`, `pkmn3`)) " + sqlIn;
 		try {
 
-			conn.createStatement().executeUpdate(query);
+			getConnection().createStatement().executeUpdate(query);
 
 		} catch (SQLException e) {
 			System.err.println("Could not update pokemon stats: " + query);
@@ -92,11 +130,11 @@ public class DBHelper {
 
 	}
 
-	public static void updateUserStats(Connection conn) {
-		updateUserStats(conn, new int[]{});
+	public static void updateUserStats() {
+		updateUserStats(new int[]{});
 	}
 	
-	public static void updateUserStats(Connection conn, int... userIds) {
+	public static void updateUserStats(int... userIds) {
 
 		String sqlIn = "";
 		if (userIds.length > 0) {
@@ -108,7 +146,7 @@ public class DBHelper {
 				+ "AND teams.id = bets.team_id AND bets.user_id = users.id) " + sqlIn;
 
 		try {
-			conn.createStatement().executeUpdate(query);
+			getConnection().createStatement().executeUpdate(query);
 		} catch (SQLException e) {
 			System.err.println("Could not update user stats: " + query);
 			e.printStackTrace();
@@ -116,9 +154,9 @@ public class DBHelper {
 
 	}
 
-	public static void updateBalance(Connection conn, String username, int balance) {
+	public static void updateBalance(String username, int balance) {
 		try {
-			PreparedStatement statement = conn.prepareStatement("INSERT INTO " + PREFIX + "users (name, wins, matches, balance) VALUES (?, 0, 0, ?)" + " ON DUPLICATE KEY UPDATE balance = ?");
+			PreparedStatement statement = getConnection().prepareStatement("INSERT INTO " + PREFIX + "users (name, wins, matches, balance) VALUES (?, 0, 0, ?)" + " ON DUPLICATE KEY UPDATE balance = ?");
 			statement.setString(1, username);
 			statement.setInt(2, balance);
 			statement.setInt(3, balance);
@@ -130,12 +168,28 @@ public class DBHelper {
 		}
 	}
 
-	public static void closeConnection(Connection conn) {
+	public static void closeConnection() {
 		try {
+			commit();
 			conn.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Sets whether the DBHelper should close Connections that are put on hold.
+	 * Otherwise it would hold the connection, risking timeouts and stuff.
+	 * Setting this option to true is useful when you are running the bot in simulation mode,
+	 * causing lots of disconnects and reconnects in a short peroid of time otherwise.
+	 * @param closePausedConnections
+	 */
+	public static void setClosePausedConnections(boolean closePausedConnections) {
+		DBHelper.closePausedConnections = closePausedConnections;
+	}
+
+	public static void setAutoCommit(boolean autoCommit) {
+		DBHelper.autoCommit = autoCommit;
 	}
 
 	/*
