@@ -43,7 +43,7 @@ public class ChatLogger {
 		//System.out.printf("#%-5d %-24s %s\n", next, user, text);
 		if (next >= messages.length) {
 			dump();
-			//System.out.println("Logger dumped " + MAX + " message to Database!");
+			System.out.println("Logger dumped " + MAX + " message to Database!");
 		}
 	}
 }

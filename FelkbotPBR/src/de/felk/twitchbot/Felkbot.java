@@ -83,19 +83,28 @@ public class Felkbot extends Twitchbot {
 		if (simulateLogMode) {
 			DBHelper.setAutoCommit(false);
 			DBHelper.setClosePausedConnections(false);
+			// process log in 100k-entry-bulks
+			int bulksize = 100_000;
+			int offset = 0;
+			int count;
 			try {
-				ResultSet rs = DBHelper.getConnection().createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id");
-				while (rs.next()) {
-					// System.out.println(rs.getString("text"));
-					String user = rs.getString("name");
-					String text = rs.getString("text");
-					Date date = rs.getTimestamp("time");
-					// System.out.println("Simulating " + user + "@" + date + ": " + text);
-					if (user.equalsIgnoreCase("tppinfobot")) {
-						System.out.println("Simulating " + user + "@" + date + ": " + text);
+				do {
+					ResultSet rs = DBHelper.getConnection().createStatement().executeQuery("SELECT * FROM `log` WHERE name LIKE 'tpp%' OR text LIKE '!bet %' ORDER BY time, id LIMIT " + offset + ", " + bulksize);
+					count = 0;
+					while (rs.next()) {
+						count++;
+						// System.out.println(rs.getString("text"));
+						String user = rs.getString("name");
+						String text = rs.getString("text");
+						Date date = rs.getTimestamp("time");
+						// System.out.println("Simulating " + user + "@" + date + ": " + text);
+						if (user.equalsIgnoreCase("tppinfobot")) {
+							System.out.println("Simulating " + user + "@" + date + ": " + text);
+						}
+						onMessageTime(tppChannel, user, "", "", text, date);
 					}
-					onMessageTime(tppChannel, user, "", "", text, date);
-				}
+					offset += bulksize;
+				} while (count >= bulksize);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
