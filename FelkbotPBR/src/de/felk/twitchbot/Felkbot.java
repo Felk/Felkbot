@@ -81,10 +81,10 @@ public class Felkbot extends Twitchbot {
 		this.chatLogger = new ChatLogger();
 
 		if (simulateLogMode) {
-			DBHelper.setAutoCommit(false);
 			DBHelper.setClosePausedConnections(false);
+			DBHelper.setAutoCommit(false);
 			// process log in 100k-entry-bulks
-			int bulksize = 1_000;
+			int bulksize = 100_000;
 			int offset = 0;
 			int count;
 			try {
@@ -104,6 +104,7 @@ public class Felkbot extends Twitchbot {
 						onMessageTime(tppChannel, user, "", "", text, date);
 					}
 					offset += bulksize;
+					DBHelper.commit();
 				} while (count >= bulksize);
 			} catch (SQLException e) {
 				e.printStackTrace();

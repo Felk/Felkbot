@@ -19,7 +19,7 @@ public class DBHelper {
 	private static Connection conn;
 	private static boolean closePausedConnections = true;
 	private static boolean autoCommit = false;
-	
+
 	static {
 		// "Hack" to make the Database driver work properly.
 		// The internet told be to do so.
@@ -61,7 +61,7 @@ public class DBHelper {
 			System.exit(-1);
 		}
 		pauseConnection();
-		
+
 	}
 
 	public static void commit() {
@@ -71,10 +71,9 @@ public class DBHelper {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
-	 * Signals the DBHelper that the Connection is not needed for some time.
-	 * The DBHelper then might close it and establish a new connection when needed.
+	 * Signals the DBHelper that the Connection is not needed for some time. The DBHelper then might close it and establish a new connection when needed.
 	 */
 	public static void pauseConnection() {
 		commit();
@@ -82,12 +81,12 @@ public class DBHelper {
 			closeConnection();
 		}
 	}
-	
+
 	/**
-	 * Returns an active Connection to the database.
-	 * This can be a previous connection that was put on hold, or a newly established one.
+	 * Returns an active Connection to the database. This can be a previous connection that was put on hold, or a newly established one.
+	 * 
 	 * @return active SQL Connection object
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	public static Connection getConnection() {
 		try {
@@ -101,7 +100,7 @@ public class DBHelper {
 		}
 		return conn;
 	}
-	
+
 	private static Connection newConnection() {
 		Connection conn = null;
 		try {
@@ -142,9 +141,9 @@ public class DBHelper {
 	}
 
 	public static void updateUserStats() {
-		updateUserStats(new int[]{});
+		updateUserStats(new int[] {});
 	}
-	
+
 	public static void updateUserStats(int... userIds) {
 
 		String sqlIn = "";
@@ -189,25 +188,34 @@ public class DBHelper {
 	}
 
 	/**
-	 * Sets whether the DBHelper should close Connections that are put on hold.
-	 * Otherwise it would hold the connection, risking timeouts and stuff.
-	 * Setting this option to true is useful when you are running the bot in simulation mode,
-	 * causing lots of disconnects and reconnects in a short peroid of time otherwise.
+	 * Sets whether the DBHelper should close Connections that are put on hold. Otherwise it would hold the connection, risking timeouts and stuff. Setting this option to true is useful when you are
+	 * running the bot in simulation mode, causing lots of disconnects and reconnects in a short peroid of time otherwise.
+	 * 
 	 * @param closePausedConnections
 	 */
 	public static void setClosePausedConnections(boolean closePausedConnections) {
 		DBHelper.closePausedConnections = closePausedConnections;
 	}
 
-	public static void setAutoCommit(boolean autoCommit) {
+	public static boolean isConnectionActive() {
 		try {
-			conn.setAutoCommit(autoCommit);
+			return !conn.isClosed();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		return false;
+	}
+	
+	public static void setAutoCommit(boolean autoCommit) {
+		if (isConnectionActive()) {
+			try {
+				conn.setAutoCommit(autoCommit);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
 		DBHelper.autoCommit = autoCommit;
 	}
-
 	/*
 	 * public static ArrayList<Pokemon> getPokemon(Connection conn, String... names) { ArrayList<Pokemon> pkmns = new ArrayList<Pokemon>();
 	 * 
