@@ -142,6 +142,12 @@ public class Felkbot extends Twitchbot {
 		initReactions();
 	}
 
+	@Override
+	protected void quit(String reason) {
+		super.quit(reason);
+		DBHelper.closeConnection();
+	}
+
 	private void initReactions() {
 		// INIT BEHAVIOURS, COMMANDS AND STUFF
 
@@ -306,6 +312,11 @@ public class Felkbot extends Twitchbot {
 		// because the betting phase only lasts that long and
 		// this method should only get called when still in that phase
 
+		if (phase != Phase.BETTING) {
+			System.err.println("Called removeTooOldBets, but not in betting phase! Not doing it...");
+			return;
+		}
+		
 		long limit = now.getTime() - 4 * 60 * 1000; // milliseconds!
 		for (int i = 0; i < 2; i++) {
 			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
@@ -315,6 +326,7 @@ public class Felkbot extends Twitchbot {
 					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
 					break;
 				}
+				System.out.println("Kicking out bet: " + bet);
 				iter.remove();
 			}
 		}
@@ -345,9 +357,11 @@ public class Felkbot extends Twitchbot {
 		Bet bet = new Bet(betAmount, time);
 
 		(onBlue ? betsBlue : betsRed).put(username, bet);
+		System.out.println("Add bet " + username + ": " + bet);
 	}
 
 	private void startMatch(List<Pokemon> pokemons, Date date) {
+		removeTooOldBets(date);
 		phase = Phase.BATTLE;
 		this.pokemons = pokemons;
 		timeStart = date;
@@ -361,7 +375,7 @@ public class Felkbot extends Twitchbot {
 
 	private void endMatch(boolean wonBlue, Date time) {
 
-		removeTooOldBets(time);
+		//removeTooOldBets(time);
 
 		if (pokemons.size() != 6) {
 			out("Could not end match, because pokemonNames list was not 6 long: " + Arrays.toString(pokemons.toArray()));
