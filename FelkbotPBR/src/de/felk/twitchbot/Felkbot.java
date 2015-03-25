@@ -322,7 +322,7 @@ public class Felkbot extends Twitchbot {
 			return;
 		}
 		
-		long limit = now.getTime() - 4 * 60 * 1000; // milliseconds!
+		long limit = now.getTime() - 270000; // 4m30s in milliseconds!
 		for (int i = 0; i < 2; i++) {
 			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
 			while (iter.hasNext()) {
