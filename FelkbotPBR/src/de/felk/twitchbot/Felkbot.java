@@ -198,9 +198,14 @@ public class Felkbot extends Twitchbot {
 					pokemons.add(pokemonFetcher.getPokemonByName(fixPkmnNames(matcher.group(i))));
 				}
 				startMatch(pokemons, time);
-				String link = messages[(int) (Math.random() * messages.length)] + "www.fe1k.de/tpp/visualize";
+				String link = messages[(int) (Math.random() * messages.length)] + "www.fe1k.de/pbr/visualize#";
+				boolean first = true;
 				for (Pokemon pkmn : pokemons) {
-					link += "-" + pkmn.id;
+					if (!first) {
+						link += "-";
+					}
+					link += pkmn.id;
+					first = false;
 				}
 				return new ReactionResult(channel, link);
 			}
@@ -326,7 +331,7 @@ public class Felkbot extends Twitchbot {
 					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
 					break;
 				}
-				System.out.println("Kicking out bet: " + bet);
+				//System.out.println("Kicking out bet: " + bet);
 				iter.remove();
 			}
 		}
@@ -357,7 +362,7 @@ public class Felkbot extends Twitchbot {
 		Bet bet = new Bet(betAmount, time);
 
 		(onBlue ? betsBlue : betsRed).put(username, bet);
-		System.out.println("Add bet " + username + ": " + bet);
+		//System.out.println("Add bet " + username + ": " + bet);
 	}
 
 	private void startMatch(List<Pokemon> pokemons, Date date) {
