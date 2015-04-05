@@ -71,6 +71,8 @@ public class Felkbot extends Twitchbot {
 	private final String tppChannel = "#twitchplayspokemon";
 
 	public static boolean simulateLogMode = true;
+	private boolean spoilTokenMatches = true;
+	private boolean skipNextLink = false;
 
 	public Felkbot(String name, String oauth, PokemonFetcher fetcher) {
 		super(name, oauth);
@@ -198,6 +200,10 @@ public class Felkbot extends Twitchbot {
 					pokemons.add(pokemonFetcher.getPokemonByName(fixPkmnNames(matcher.group(i))));
 				}
 				startMatch(pokemons, time);
+				if (skipNextLink) {
+					skipNextLink = false;
+					return null;
+				}
 				String link = messages[(int) (Math.random() * messages.length)] + "www.fe1k.de/pbr/visualize#";
 				boolean first = true;
 				for (Pokemon pkmn : pokemons) {
@@ -275,15 +281,31 @@ public class Felkbot extends Twitchbot {
 			}
 		});
 
-		// enable or disable messages
+		// enable or disable messages + enable or disable token match spoiling
 		addReaction(new ReactionConditioned(ANY, getOps(), false) {
 			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderOp, String message, Date time) {
 				if (message.startsWith("!enableOutput")) {
 					setOutputEnabled(true);
 				} else if (message.startsWith("!disableOutput")) {
 					setOutputEnabled(false);
+				} else if (message.startsWith("!enableSpoiling")) {
+					spoilTokenMatches = true;
+				} else if (message.startsWith("!disableSpoiling")) {
+					spoilTokenMatches = false;
 				}
 				return null;
+			}
+		});
+
+		// spoil token matches
+		addReaction(new ReactionConditionedRegex(tppChannel, ANY, false, Pattern.compile("@([^ ]*?) wins the token match bid! ([0-9]+),([0-9]+),([0-9]+)/([0-9]+),([0-9]+),([0-9]+) for ([0-9]+) tokens!", Pattern.CASE_INSENSITIVE)) {
+			public ReactionResult executeAccepted(String channel, String sender, boolean isSenderOp, String message, Date time, Matcher regexMatcher) {
+				if (!spoilTokenMatches) {
+					return null;
+				}
+				skipNextLink = true;
+				String[] ids = new String[] { regexMatcher.group(2), regexMatcher.group(3), regexMatcher.group(4), regexMatcher.group(5), regexMatcher.group(6), regexMatcher.group(7) };
+				return new ReactionResult(channel, "The winning token match: www.fe1k.de/pbr/visualize#" + ids[0] + "-" + ids[1] + "-" + ids[2] + "-" + ids[3] + "-" + ids[4] + "-" + ids[5]);
 			}
 		});
 
@@ -321,7 +343,7 @@ public class Felkbot extends Twitchbot {
 			System.err.println("Called removeTooOldBets, but not in betting phase! Not doing it...");
 			return;
 		}
-		
+
 		long limit = now.getTime() - 270000; // 4m30s in milliseconds!
 		for (int i = 0; i < 2; i++) {
 			Iterator<Entry<String, Bet>> iter = (i == 0 ? betsBlue : betsRed).entrySet().iterator();
@@ -331,7 +353,7 @@ public class Felkbot extends Twitchbot {
 					// list is LinkedHashMap (keeping insertion order), so all following entries are within the limit
 					break;
 				}
-				//System.out.println("Kicking out bet: " + bet);
+				// System.out.println("Kicking out bet: " + bet);
 				iter.remove();
 			}
 		}
@@ -362,7 +384,7 @@ public class Felkbot extends Twitchbot {
 		Bet bet = new Bet(betAmount, time);
 
 		(onBlue ? betsBlue : betsRed).put(username, bet);
-		//System.out.println("Add bet " + username + ": " + bet);
+		// System.out.println("Add bet " + username + ": " + bet);
 	}
 
 	private void startMatch(List<Pokemon> pokemons, Date date) {
@@ -380,7 +402,7 @@ public class Felkbot extends Twitchbot {
 
 	private void endMatch(boolean wonBlue, Date time) {
 
-		//removeTooOldBets(time);
+		// removeTooOldBets(time);
 
 		if (pokemons.size() != 6) {
 			out("Could not end match, because pokemonNames list was not 6 long: " + Arrays.toString(pokemons.toArray()));
